@@ -134,17 +134,26 @@
                     </security>
                 </datasource>
                 <datasource jndi-name="java:jboss/datasources/KeycloakDS" pool-name="KeycloakDS" enabled="true" use-java-context="true" statistics-enabled="${wildfly.datasources.statistics-enabled:${wildfly.statistics-enabled:false}}">
-                    <connection-url>jdbc:h2:${jboss.server.data.dir}/keycloak;AUTO_SERVER=TRUE</connection-url>
-                    <driver>h2</driver>
+                    <connection-url>jdbc:postgresql://kc_postgres:5432/quartz</connection-url>
+                    <driver>postgresql</driver>
                     <security>
-                        <user-name>sa</user-name>
-                        <password>sa</password>
+                        <user-name>kcpgadmin</user-name>
+                        <password>kcpgpassword</password>
                     </security>
+                    <validation>
+                    <background-validation>true</background-validation>
+                    <background-validation-millis>10000</background-validation-millis>
+                    <valid-connection-checker class-name="org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker"/>
+                    <exception-sorter class-name="org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter"/>
+                  </validation>
                 </datasource>
                 <drivers>
                     <driver name="h2" module="com.h2database.h2">
                         <xa-datasource-class>org.h2.jdbcx.JdbcDataSource</xa-datasource-class>
                     </driver>
+                    <driver name="postgresql" module="org.postgresql">
+                        <xa-datasource-class>org.postgresql.xa.PGXADataSource</xa-datasource-class>
+                   </driver>
                 </drivers>
             </datasources>
         </subsystem>
@@ -427,6 +436,21 @@
                 </stack>
                 <stack name="tcp">
                     <transport type="TCP" socket-binding="jgroups-tcp"/>
+                    <protocol type="JDBC_PING">
+                      <property name="datasource_jndi_name">java:jboss/datasources/KeycloakDS</property>
+                      <property name="initialize_sql">
+                        CREATE TABLE IF NOT EXISTS JGROUPSPING (
+                        own_addr varchar(200) NOT NULL,
+                        cluster_name varchar(200) NOT NULL,
+                        ping_data BYTEA,
+                        PRIMARY KEY (own_addr, cluster_name)
+                        );
+                      </property>
+                      <property name="remove_all_data_on_view_change">true</property>
+                      <property name="remove_old_coords_on_view_change">true</property>
+                      <property name="info_writer_max_writes_after_view">5</property>
+                      <property name="info_writer_sleep_time">500</property>
+                    </protocol>
                     <socket-protocol type="MPING" socket-binding="jgroups-mping"/>
                     <protocol type="MERGE3"/>
                     <socket-protocol type="FD_SOCK" socket-binding="jgroups-tcp-fd"/>
@@ -545,7 +569,7 @@
             </mail-session>
         </subsystem>
         <subsystem xmlns="urn:wildfly:microprofile-config-smallrye:1.0"/>
-        <subsystem xmlns="urn:wildfly:microprofile-health-smallrye:2.0" security-enabled="false" empty-liveness-checks-status="${env.MP_HEALTH_EMPTY_LIVENESS_CHECKS_STATUS:UP}" empty-readiness-checks-status="${env.MP_HEALTH_EMPTY_READINESS_CHECKS_STATUS:UP}"/>
+        <subsystem xmlns="urn:wildfly:microprofile-health-smallrye:2.0" security-enabled="false"/>
         <subsystem xmlns="urn:wildfly:microprofile-metrics-smallrye:2.0" security-enabled="false" exposed-subsystems="*" prefix="${wildfly.metrics.prefix:wildfly}"/>
         <subsystem xmlns="urn:jboss:domain:modcluster:5.0">
             <proxy name="default" advertise-socket="modcluster" listener="ajp">
